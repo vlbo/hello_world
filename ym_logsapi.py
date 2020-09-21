@@ -2,6 +2,7 @@ import pandas as pd
 from pandas import json_normalize
 import json
 import requests
+from datetime import date
 
 headers = {
     #'GET': '/management/v1/counters HTTP/1.1',
@@ -11,9 +12,10 @@ headers = {
     #'Content-Length': '123'
     }
 
+today = date.today()
 start_of_url = 'https://api-metrika.yandex.ru/management/v1/counter/55237969/'
 date1 = '2018-01-01'
-date2 = '2020-09-11'
+date2 = today.strftime('%Y-%d-%m')
 fields = "ym:s:clientID,ym:s:dateTime,ym:s:lastTrafficSource,ym:s:visitDuration,ym:s:pageViews"
 source = 'visits'
 oauth_token = 'AgAAAAAoVX5fAAaY0CYtJ-9qfki_tcfmAXyYLhA'
