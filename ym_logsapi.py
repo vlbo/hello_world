@@ -13,7 +13,7 @@ import datetime as dt
 
 
 from airflow.models import DAG
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python import PythonOperator
 
 args = {
     'owner': 'airflow',
@@ -29,7 +29,7 @@ def download_logs():
     'Authorization': 'OAuth ****',
     }
 
-    date1 = date.today() + datetime.timedelta(days=-25)
+    date1 = date.today() + datetime.timedelta(days=-60)
     date2 = date.today() + datetime.timedelta(days=-1)
     start_of_url = 'https://api-metrika.yandex.ru/management/v1/counter/****/'
     date1 = date1.strftime('%Y-%m-%d')
@@ -103,24 +103,48 @@ def download_logs():
     engine = sqlalchemy.create_engine('postgresql://postgres:****@localhost:5432/learning')
     connection = engine.raw_connection()
     cursor = connection.cursor()
-    query = ''' delete from forpython.ym '''
+    query = ''' delete from forpython.odd_ym '''
     cursor.execute(query)
 
     df.to_sql(
-        name='ym',
+        name='odd_ym',
         con=engine,
         index=False,
         schema='forpython',
         chunksize=500,
         if_exists='append'
         )
+    query2 = '''drop table forpython.dds_ym;
+    select distinct * into forpython.dds_ym from forpython.odd_ym;
+    drop table forpython.mart_ym;
+    select client_id
+    , datetime
+    , last_traffic_source
+    , visit_duration 
+    , page_views 
+    , sum( case when goals_id like '%157417987%' then 1 else 0 end ) as show_dbpage
+    , sum( case when goals_id like '%157418284%' then 1 else 0 end ) as scroll_80perc
+    , sum( case when goals_id like '%157418581%' then 1 else 0 end ) as click_dbpage
+    , sum( case when goals_id like '%157418950%' then 1 else 0 end ) as click_github
+    into forpython.mart_ym
+    from forpython.dds_ym
+    group by client_id
+    , datetime 
+    , last_traffic_source 
+    , visit_duration 
+    , page_views;'''
+    cursor.execute(query2)
 
 def move_to_spreasheets():
-    gc = gspread.service_account(filename='/****.json')
+    gc = gspread.service_account(filename='/****/growthwith-a88c3b0d5161.json')
     sh = gc.open_by_key('****')
     worksheet = sh.get_worksheet(0)
+    cells = worksheet.range('A2:I10000')  # выбор ячеек для очистки
+    for cell in cells:
+        cell.value = ''
+    worksheet.update_cells(cells)
     engine = sqlalchemy.create_engine('postgresql://postgres:****@localhost:5432/learning')
-    df = pd.read_sql_query('select * from forpython.ym', con=engine)
+    df = pd.read_sql_query('select * from forpython.mart_ym', con=engine)
     set_with_dataframe(worksheet, df)
 
 with DAG(dag_id='ym_logsapi', default_args=args) as dag:
